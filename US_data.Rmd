@@ -1,0 +1,100 @@
+
+```{r setup, results="hide", warning=F, message=F}
+#LIBRARY'S
+library(tidyverse)
+library(plotly)
+library(data.table)
+library(ggplot2)
+library(maps)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+```
+
+
+Covid-19 Dataset
+
+Download [us-states.csv](https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv)
+from <https://github.com/nytimes/covid-19-data/>. 
+[README.md](https://github.com/nytimes/covid-19-data/blob/master/README.md) 
+for details on file content.
+
+```{r}
+data1 = fread("us-states.csv")
+
+```
+
+```{r}
+head(data1)
+
+```
+
+```{r}
+data1$date = as.Date(data1$date)
+data_us = data1 %>%
+  group_by(state, year_month = format(date, "%Y-%m")) %>%
+  summarise(fips = max(fips), cases_cum = max(cases), deaths_cum = max(deaths), date=min(date)) %>%
+  mutate(cases=cases_cum-lag(cases_cum,default=0))
+
+data_us
+
+```
+
+
+```{r}
+
+state_plot = data_us %>%
+  plot_ly(x = ~year_month, y = ~cases, color = ~state, type = 'scatter',mode = 'Path')
+state_plot
+```
+
+```{r}
+ny_data = data_us %>% filter(state == "New York")
+ny_scatter.plot = ny_data %>%
+  plot_ly(x = ~year_month, y = ~cases, type = 'scatter')
+ny_scatter.plot
+
+```
+
+```{r}
+highest_cases = ny_data[which.max(ny_data$cases), ]
+highest_cases
+```
+
+```{r}
+
+g = list(
+  scope = "usa",
+  projection = list(type = 'albers usa'),
+  lakecolor = toRGB('white'))
+
+us_data_filtered = data_us[data_us$state %in% state.name, ]
+
+us_data_filtered$state_short.name <- state.abb[match(us_data_filtered$state, state.name)]
+dummy = us_data_filtered %>% group_by(state, state_short.name) %>% summarise(cases = max(cases))
+
+
+plot_geo(data = dummy) %>%
+  add_trace(
+    z = ~cases, text = ~state,  span = I(0), locations = ~state_short.name, locationmode = 'USA-states') %>%
+  layout(geo = g)
+
+```
+
+
+```{r}
+
+dummy = us_data_filtered %>% group_by(state, state_short.name, year_month) %>% summarise(new_cases = max(cases))
+
+
+plot_geo(data = dummy) %>%
+  add_trace(
+    z = ~new_cases, text = ~state,  span = I(0), locations = ~state_short.name, locationmode = 'USA-states', frame = ~year_month) %>%
+  layout(geo = g)
+```
+
+
+
+
+
+
